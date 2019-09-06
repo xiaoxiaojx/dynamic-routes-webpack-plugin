@@ -1,0 +1,21 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`DYNAMIC_REQ_PATH test 1`] = `"__dynamic_routes_"`;
+
+exports[`JsParser test 1`] = `
+Object {
+  "/edit": "../components/Page/Edit",
+  "/home": "../components/Page/Home",
+  "/report": "../components/Page/Report",
+  "/success": "../components/Page/Success",
+}
+`;
+
+exports[`TsParser test 1`] = `
+Object {
+  "/edit": "../components/Page/Edit",
+  "/home": "../components/Page/Home",
+  "/report": "../components/Page/Report",
+  "/success": "../components/Page/Success",
+}
+`;

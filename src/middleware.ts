@@ -1,8 +1,7 @@
-import * as fs from 'fs'
 import * as Express from 'express'
 import * as Webpack from 'webpack'
 import DynamicRoutesWebpackPlugin, {
-  DynamicRoutesWebpackPluginOptions,
+  IDynamicRoutesWebpackPlugin,
   Operator
 } from './plugin'
 import { isPushState, getReqPath, findRoutePath } from './helpers'
@@ -11,32 +10,30 @@ interface Server {
   invalidate: (callback: () => void) => void
 }
 
-function applyDynamicRoutesWebpackPlugin(
-  compiler: Webpack.Compiler,
-  options: DynamicRoutesWebpackPluginOptions
-): Operator {
-  const plugin = new DynamicRoutesWebpackPlugin(options)
-  plugin.apply(compiler)
-  return plugin.getApi()
+interface ReportRouteResp {
+  data: boolean
 }
 
-function applyOtherWebpackPlugin(compiler: Webpack.Compiler): void {
-  const definePlugin = new Webpack.DefinePlugin({
-    DISABLE_DYNAMIC_ROUTES_WEBPACK_PLUGIN: JSON.stringify(false)
-  })
-  definePlugin.apply(compiler)
+function mockPluginOperator(): Operator {
+  return {
+    getRoutesMap: () => ({}),
+    addRoute: () => false
+  }
+}
+
+function getPluginOperator(compiler: Webpack.Compiler): Operator {
+  const plugin: IDynamicRoutesWebpackPlugin = Reflect.get(compiler, DynamicRoutesWebpackPlugin.COMPILER_KEY)
+  if (plugin) {
+    return plugin.getOperator()
+  }
+  return mockPluginOperator()
 }
 
 export default function createMiddleware(
   compiler: Webpack.Compiler,
-  server: Server,
-  options: DynamicRoutesWebpackPluginOptions
+  server: Server
 ): Express.Handler {
-  const { addRoute, getRoutesMap } = applyDynamicRoutesWebpackPlugin(
-    compiler,
-    options
-  )
-  applyOtherWebpackPlugin(compiler)
+  const { addRoute, getRoutesMap } = getPluginOperator(compiler)
 
   return (
     req: Express.Request,
@@ -45,21 +42,25 @@ export default function createMiddleware(
   ) => {
     const reqPath = getReqPath(req.url)
     const routePath = findRoutePath(getRoutesMap(), reqPath)
-    let isAddRoute = false
+    let addNewRouteResult = false
+
     if (routePath) {
-      isAddRoute = addRoute(routePath)
+      addNewRouteResult = addRoute(routePath)
     }
-    if (isAddRoute) {
-      fs.utimesSync(options.routes, new Date(), new Date())
+
+    if (addNewRouteResult) {
       server.invalidate(() => {
         console.log(`Start compile ${routePath}`)
       })
     }
+
     if (isPushState(req.url)) {
-      return res.type('application/json').send({
-        data: isAddRoute
-      })
+      const resp: ReportRouteResp = {
+        data: addNewRouteResult
+      }
+      return res.type('application/json').send(resp)
     }
+
     next()
   }
 }

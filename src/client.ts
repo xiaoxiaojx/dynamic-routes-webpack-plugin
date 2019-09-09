@@ -1,31 +1,40 @@
-declare var DISABLE_DYNAMIC_ROUTES_WEBPACK_PLUGIN: boolean
+interface ReportRouteResp {
+  data: boolean
+}
 
-function proxyHistory(handle: typeof history.pushState): void {
+function reportRouteChange(url: string): Promise<ReportRouteResp> {
+  if (typeof fetch === 'function') {
+    return fetch(`/__dynamic_routes__?url=${url}`)
+      .then(res => res.json())
+  }
+  return Promise.resolve({data: false})
+}
+
+function proxyHistory(handler: typeof history.pushState): void {
   if (typeof history !== 'object') {
     return
   }
-  const prePushState = history.pushState
+  const originPushState = history.pushState
 
   function nextPushState(
     data: any,
     title: string,
     url?: string | null | undefined
   ) {
-    prePushState.call(history, data, title, url)
-    handle(data, title, url)
+    originPushState.call(history, data, title, url)
+    handler(data, title, url)
   }
 
   history.pushState = nextPushState
 }
 
-function handle(
-  data: any,
-  title: string,
+function handler(
+  _data: any,
+  _title: string,
   url?: string | null | undefined
 ): void {
-  if (url && typeof location === 'object' && typeof fetch === 'function') {
-    fetch(`/__dynamic_routes_?url=${url}`)
-      .then(res => res.json())
+  if (url && typeof location === 'object') {
+    reportRouteChange(url)
       .then(res => {
         if (res && res.data) {
           location.reload()
@@ -34,9 +43,4 @@ function handle(
   }
 }
 
-if (
-  typeof DISABLE_DYNAMIC_ROUTES_WEBPACK_PLUGIN !== 'undefined' &&
-  DISABLE_DYNAMIC_ROUTES_WEBPACK_PLUGIN === false
-) {
-  proxyHistory(handle)
-}
+proxyHistory(handler)

@@ -4,7 +4,7 @@ import traverse from 'babel-traverse'
 import { NormalObject } from '../types/custom'
 import defaultTraverse from './traverse'
 
-const dynamicParser = acorn.Parser.extend(dynamicImport)
+const dynamicParser: typeof acorn.Parser = acorn.Parser.extend(dynamicImport)
 
 const defaultParserOptions: acorn.Options & { plugins: NormalObject } = {
   ranges: true,

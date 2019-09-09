@@ -1,6 +1,7 @@
 import { NormalObject } from '../types/custom'
 
 export function getProperty(obj: NormalObject, names: Array<string>) {
+  if (!obj) return
   names = names.slice()
   for (let i = 0; i < names.length - 1; i++) {
     obj = obj[names[i]]
@@ -17,7 +18,7 @@ export function isObject(obj: any): boolean {
   return Object.prototype.toString.call(obj) === '[object Object]'
 }
 
-export const DYNAMIC_REQ_PATH: string = '__dynamic_routes_'
+export const DYNAMIC_REQ_PATH: string = '__dynamic_routes__'
 
 export function isPushState(url: string): boolean {
   return url.includes(DYNAMIC_REQ_PATH)

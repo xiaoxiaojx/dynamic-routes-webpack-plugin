@@ -88,7 +88,7 @@ test('DYNAMIC_REQ_PATH test', () => {
 })
 
 test('isPushState test - 1', () => {
-  expect(isPushState('https://xxx.com/__dynamic_routes_')).toBeTruthy()
+  expect(isPushState('https://xxx.com/__dynamic_routes__')).toBeTruthy()
 })
 
 test('isPushState test - 2', () => {
@@ -96,7 +96,7 @@ test('isPushState test - 2', () => {
 })
 
 test('getReqPath test - 1', () => {
-  expect(getReqPath('https://xxx.com/__dynamic_routes_?url=https://yyy.com')).toBe('https://yyy.com')
+  expect(getReqPath('https://xxx.com/__dynamic_routes__?url=https://yyy.com')).toBe('https://yyy.com')
 })
 
 test('getReqPath test - 2', () => {

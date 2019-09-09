@@ -5,6 +5,7 @@ import { getProperty, toArray, isObject } from './helpers'
 import createParser, { Parser } from './parser'
 import onTraverse from './traverse'
 import { NormalObject } from '../types/custom'
+
 export interface DynamicRoutesWebpackPluginOptions {
   /**
    * @description 路由文件的绝对路径, 通过解析该文件内容得到 routesMap
@@ -40,7 +41,7 @@ export interface Operator {
 export type Current = Array<string> | string
 
 export type IDynamicRoutesWebpackPlugin = Webpack.Plugin & {
-  getApi: OpenApi
+  getOperator: OpenApi
 }
 
 type OpenApi = () => Operator
@@ -49,28 +50,30 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
   private readonly options: DynamicRoutesWebpackPluginOptions
   private readonly parser: Parser | null
   private routesMap: NormalObject = {}
+  private routesModuleNeedRebuild: boolean = false
 
   constructor(options: DynamicRoutesWebpackPluginOptions) {
     DynamicRoutesWebpackPlugin.validateOptions(options)
     this.options = DynamicRoutesWebpackPlugin.normalizeOptions(options)
     this.parser = createParser(path.extname(options.routes as string))
-    this.getApi = this.getApi.bind(this)
-    this.addRoute = this.addRoute.bind(this)
     this.initRoutesMap()
   }
 
   public apply(compiler: Webpack.Compiler): void {
     this.checkIsDevelopment(compiler)
+    this.connectCompiler(compiler)
 
     compiler.hooks.compilation.tap(
-      'DynamicRoutesWebpackPlugin',
-      (_, { normalModuleFactory }) => {
-        const handler = (parser: NormalObject, parserOptions: NormalObject) => {
+      DynamicRoutesWebpackPlugin.name,
+      (compilation, { normalModuleFactory }) => {
+        const skipNotNeedProcessedImport = (parser: NormalObject, parserOptions: NormalObject) => {
           if (parserOptions.import !== undefined && !parserOptions.import)
             return
+
+          /** @type {SyncBailHook<expression>} */
           parser.hooks.importCall.tap(
             {
-              name: 'DynamicRoutesWebpackPlugin',
+              name: DynamicRoutesWebpackPlugin.name,
               before: 'ImportParserPlugin'
             },
             (expr: NormalObject) => {
@@ -91,23 +94,41 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
           )
         }
 
+        const proxyRoutesModuleNeedRebuild = (module: Webpack.compilation.Module) => {
+          if (this.isRoutesModule(module)) {
+            const originNeedRebuild = Reflect.get(module, 'needRebuild')
+            const needRebuild = (...args: any) => {
+              const result = this.routesModuleNeedRebuild
+              const originResult = typeof originNeedRebuild === 'function' && originNeedRebuild.apply(module, args)
+
+              this.routesModuleNeedRebuild = false
+              return result || originResult
+            }
+            Reflect.set(module, 'needRebuild', needRebuild)
+          }
+        }
+
+        /** @type {SyncHook<parser, parserOptions>} */
         normalModuleFactory.hooks.parser
           .for('javascript/auto')
-          .tap('ImportPlugin', handler)
+          .tap(DynamicRoutesWebpackPlugin.name, skipNotNeedProcessedImport)
         normalModuleFactory.hooks.parser
           .for('javascript/dynamic')
-          .tap('ImportPlugin', handler)
+          .tap(DynamicRoutesWebpackPlugin.name, skipNotNeedProcessedImport)
         normalModuleFactory.hooks.parser
           .for('javascript/esm')
-          .tap('ImportPlugin', handler)
+          .tap(DynamicRoutesWebpackPlugin.name, skipNotNeedProcessedImport)
+
+        /** @type {SyncHook<Module>} */
+        compilation.hooks.succeedModule.tap(DynamicRoutesWebpackPlugin.name, proxyRoutesModuleNeedRebuild)
       }
     )
   }
 
-  public getApi: OpenApi = () => {
+  public getOperator: OpenApi = () => {
     return {
       getRoutesMap: () => this.routesMap,
-      addRoute: this.addRoute
+      addRoute: this.addRoute.bind(this)
     }
   }
 
@@ -116,6 +137,7 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
     if (current!.includes(route) || !route) {
       return false
     }
+    this.routesModuleNeedRebuild = true
     this.options.current = [...(current as Array<string>), route]
     return true
   }
@@ -135,6 +157,10 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
   private isRoutesImport(request: string): boolean {
     const { routes } = this.options
     return request.endsWith(routes as string)
+  }
+
+  private isRoutesModule(module: Webpack.compilation.Module): boolean {
+    return getProperty(module, ['userRequest']) === this.options.routes
   }
 
   private async initRoutesMap(): Promise<void> {
@@ -160,14 +186,24 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
       return
     }
     if (env !== 'development' || mode !== 'development') {
-      throw new Error(`
-                It looks like you want to use it in the production environment.
-                current process.env.NODE_ENV ${env},
-                webpack.config.mode ${mode},
-                you can provide options.forceDev === false
-            `)
+      throw new Error(
+        `
+          It looks like you want to use it in the production environment.
+          current process.env.NODE_ENV ${env},
+          webpack.config.mode ${mode},
+          you can provide options.forceDev = false
+        `
+      )
     }
   }
+
+  private connectCompiler(compiler: Webpack.Compiler): void {
+    if (!Reflect.get(compiler, DynamicRoutesWebpackPlugin.COMPILER_KEY)) {
+      Reflect.set(compiler, DynamicRoutesWebpackPlugin.COMPILER_KEY, this)
+    }
+  }
+
+  static COMPILER_KEY: string = '__dynamic_routes_plugin__'
 
   static normalizeOptions(
     options: DynamicRoutesWebpackPluginOptions

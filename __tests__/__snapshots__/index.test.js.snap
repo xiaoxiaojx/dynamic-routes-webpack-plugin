@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`DYNAMIC_REQ_PATH test 1`] = `"__dynamic_routes_"`;
+exports[`DYNAMIC_REQ_PATH test 1`] = `"__dynamic_routes__"`;
 
 exports[`JsParser test 1`] = `
 Object {

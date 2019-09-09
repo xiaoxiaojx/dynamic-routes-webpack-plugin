@@ -16,23 +16,23 @@ $ yarn add dynamic-routes-webpack-plugin -D
 // webpack.config.dev.js
 {
   entry: [
-    'dynamic-routes-webpack-plugin/lib/client.js',
+    '@msfe/dynamic-routes-webpack-plugin/lib/client.js',
     'your/app/index.js'
+  ],
+  plugins: [
+    new DynamicRoutesWebpackPlugin({
+      routes: paths.routes
+    })
   ]
 }
 ```
 
-### step2 DynamicRoutesMiddleware
-> 在 webpack-dev-server 勾子中引入, 集成了 DynamicRoutesWebpackPlugin, 直接在浏览器中输入本地测试地址, 中间件监听到去变化动态编译
+### step2
+> 在 webpack-dev-server 勾子中引入, 直接在浏览器中输入本地测试地址, 中间件监听到去变化动态编译
 ```
 // webpackDevServer.config.js
 before(app, server, compiler) {
-    app.use(DynamicRoutesMiddleware(compiler, server, {
-        /**
-        *   路由文件的路径
-        */
-        routes: paths.routes
-    }))
+    app.use(DynamicRoutesMiddleware(compiler, server))
 }
 ```
 

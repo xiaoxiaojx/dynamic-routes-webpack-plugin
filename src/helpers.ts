@@ -1,6 +1,6 @@
 import { NormalObject } from '../types/custom'
 
-export function getProperty(obj: NormalObject, names: Array<string>) {
+export function getProperty(obj: NormalObject, names: Array<string>): any {
   if (!obj) return
   names = names.slice()
   for (let i = 0; i < names.length - 1; i++) {
@@ -24,7 +24,7 @@ export function isPushState(url: string): boolean {
   return url.includes(DYNAMIC_REQ_PATH)
 }
 
-export function getReqPath(url: string): string {
+export function getReqRoutePath(url: string): string {
   if (isPushState(url)) {
     return url.split('url=')[1]
   }

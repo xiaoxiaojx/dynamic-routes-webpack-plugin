@@ -1,17 +1,17 @@
 import * as Express from 'express'
 import * as Webpack from 'webpack'
 import DynamicRoutesWebpackPlugin, {
-  IDynamicRoutesWebpackPlugin,
   Operator
 } from './plugin'
-import { isPushState, getReqPath, findRoutePath } from './helpers'
+import { getReqRoutePath, findRoutePath } from './helpers'
 
 interface Server {
   invalidate: (callback: () => void) => void
 }
 
-interface ReportRouteResp {
-  data: boolean
+interface RecompileHooks {
+  before: () => void
+  after: () => void
 }
 
 function mockPluginOperator(): Operator {
@@ -22,43 +22,41 @@ function mockPluginOperator(): Operator {
 }
 
 function getPluginOperator(compiler: Webpack.Compiler): Operator {
-  const plugin: IDynamicRoutesWebpackPlugin = Reflect.get(compiler, DynamicRoutesWebpackPlugin.COMPILER_KEY)
-  if (plugin) {
-    return plugin.getOperator()
-  }
-  return mockPluginOperator()
+  return DynamicRoutesWebpackPlugin.getOperatorFromCompiler(compiler) || mockPluginOperator()
+}
+
+function triggerDevServerRecompile(server: Server, hooks: RecompileHooks): void {
+  hooks.before()
+  server.invalidate(hooks.after)
 }
 
 export default function createMiddleware(
   compiler: Webpack.Compiler,
   server: Server
 ): Express.Handler {
-  const { addRoute, getRoutesMap } = getPluginOperator(compiler)
+  const pluginOperator: Operator = getPluginOperator(compiler)
 
   return (
     req: Express.Request,
-    res: Express.Response,
+    _res: Express.Response,
     next: Express.NextFunction
   ) => {
-    const reqPath = getReqPath(req.url)
-    const routePath = findRoutePath(getRoutesMap(), reqPath)
-    let addNewRouteResult = false
+    const reqRoutePath = getReqRoutePath(req.url)
+    const routePath = findRoutePath(pluginOperator.getRoutesMap(), reqRoutePath)
+    let isSucceedForAddRoute = false
 
     if (routePath) {
-      addNewRouteResult = addRoute(routePath)
+      isSucceedForAddRoute = pluginOperator.addRoute(routePath)
     }
 
-    if (addNewRouteResult) {
-      server.invalidate(() => {
-        console.log(`Start compile ${routePath}`)
-      })
-    }
-
-    if (isPushState(req.url)) {
-      const resp: ReportRouteResp = {
-        data: addNewRouteResult
-      }
-      return res.type('application/json').send(resp)
+    if (isSucceedForAddRoute) {
+      triggerDevServerRecompile(
+        server,
+        {
+          before: () => console.log(`Start compiling ${routePath} ...`),
+          after: () => console.log(`Compiled ${routePath} successfully!`)
+        }
+      )
     }
 
     next()

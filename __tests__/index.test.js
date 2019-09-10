@@ -7,7 +7,7 @@ const {
   toArray,
   isObject,
   isPushState,
-  getReqPath,
+  getReqRoutePath,
   normalizeRoutePath,
   findRoutePath,
   DYNAMIC_REQ_PATH
@@ -95,12 +95,12 @@ test('isPushState test - 2', () => {
   expect(isPushState('https://xxx.com')).toBeFalsy()
 })
 
-test('getReqPath test - 1', () => {
-  expect(getReqPath('https://xxx.com/__dynamic_routes__?url=https://yyy.com')).toBe('https://yyy.com')
+test('getReqRoutePath test - 1', () => {
+  expect(getReqRoutePath('https://xxx.com/__dynamic_routes__?url=https://yyy.com')).toBe('https://yyy.com')
 })
 
-test('getReqPath test - 2', () => {
-  expect(getReqPath('https://xxx.com/api?url=https://yyy.com')).toBe('https://xxx.com/api')
+test('getReqRoutePath test - 2', () => {
+  expect(getReqRoutePath('https://xxx.com/api?url=https://yyy.com')).toBe('https://xxx.com/api')
 })
 
 test('normalizeRoutePath test - 1', () => {

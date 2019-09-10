@@ -16,7 +16,7 @@ $ yarn add dynamic-routes-webpack-plugin -D
 // webpack.config.dev.js
 {
   entry: [
-    '@msfe/dynamic-routes-webpack-plugin/lib/client.js',
+    'dynamic-routes-webpack-plugin/lib/client.js',
     'your/app/index.js'
   ],
   plugins: [

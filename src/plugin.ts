@@ -66,7 +66,10 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
     compiler.hooks.compilation.tap(
       DynamicRoutesWebpackPlugin.name,
       (compilation, { normalModuleFactory }) => {
-        const skipNotNeedProcessedImport = (parser: NormalObject, parserOptions: NormalObject) => {
+        const skipNotNeedProcessedImport = (
+          parser: NormalObject,
+          parserOptions: NormalObject
+        ) => {
           if (parserOptions.import !== undefined && !parserOptions.import)
             return
 
@@ -94,12 +97,16 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
           )
         }
 
-        const proxyRoutesModuleNeedRebuild = (module: Webpack.compilation.Module) => {
+        const proxyRoutesModuleNeedRebuild = (
+          module: Webpack.compilation.Module
+        ) => {
           if (this.isRoutesModule(module)) {
             const originNeedRebuild = Reflect.get(module, 'needRebuild')
             const needRebuild = (...args: any) => {
               const result = this.routesModuleNeedRebuild
-              const originResult = typeof originNeedRebuild === 'function' && originNeedRebuild.apply(module, args)
+              const originResult =
+                typeof originNeedRebuild === 'function' &&
+                originNeedRebuild.apply(module, args)
 
               this.routesModuleNeedRebuild = false
               return result || originResult
@@ -120,7 +127,10 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
           .tap(DynamicRoutesWebpackPlugin.name, skipNotNeedProcessedImport)
 
         /** @type {SyncHook<Module>} */
-        compilation.hooks.succeedModule.tap(DynamicRoutesWebpackPlugin.name, proxyRoutesModuleNeedRebuild)
+        compilation.hooks.succeedModule.tap(
+          DynamicRoutesWebpackPlugin.name,
+          proxyRoutesModuleNeedRebuild
+        )
       }
     )
   }
@@ -203,7 +213,18 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
     }
   }
 
-  static COMPILER_KEY: string = '__dynamic_routes_plugin__'
+  static COMPILER_KEY: symbol = Symbol('__dynamic_routes_plugin__')
+
+  static getOperatorFromCompiler(compiler: Webpack.Compiler): Operator | null {
+    const plugin: IDynamicRoutesWebpackPlugin = Reflect.get(
+      compiler,
+      DynamicRoutesWebpackPlugin.COMPILER_KEY
+    )
+    if (plugin) {
+      return plugin.getOperator()
+    }
+    return null
+  }
 
   static normalizeOptions(
     options: DynamicRoutesWebpackPluginOptions

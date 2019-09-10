@@ -1,31 +1,25 @@
-interface ReportRouteResp {
-  data: boolean
+type FunctionObject = Record<string, (...args: Array<any>) => any>
+
+function reportRouteChange(url: string): void {
+  if (typeof fetch === 'function') {
+    fetch(`/__dynamic_routes__?url=${url}`)
+  }
 }
 
-function reportRouteChange(url: string): Promise<ReportRouteResp> {
-  if (typeof fetch === 'function') {
-    return fetch(`/__dynamic_routes__?url=${url}`)
-      .then(res => res.json())
-  }
-  return Promise.resolve({data: false})
+function proxyMethod<T extends FunctionObject, K extends keyof T>(obj: T, property: K, handler: T[K]): void {
+  const originFn: T[K] = obj[property]
+  const nextFn: T[K] = ((...args: any[]) => {
+    originFn.apply(obj, args)
+    handler.apply(null, args)
+  }) as T[K]
+
+  obj[property] = nextFn
 }
 
 function proxyHistory(handler: typeof history.pushState): void {
-  if (typeof history !== 'object') {
-    return
+  if (typeof history === 'object') {
+    proxyMethod(history as any, 'pushState', handler)
   }
-  const originPushState = history.pushState
-
-  function nextPushState(
-    data: any,
-    title: string,
-    url?: string | null | undefined
-  ) {
-    originPushState.call(history, data, title, url)
-    handler(data, title, url)
-  }
-
-  history.pushState = nextPushState
 }
 
 function handler(
@@ -33,13 +27,8 @@ function handler(
   _title: string,
   url?: string | null | undefined
 ): void {
-  if (url && typeof location === 'object') {
+  if (url) {
     reportRouteChange(url)
-      .then(res => {
-        if (res && res.data) {
-          location.reload()
-        }
-      })
   }
 }
 

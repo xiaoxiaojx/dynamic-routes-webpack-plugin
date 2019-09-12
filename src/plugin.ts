@@ -6,6 +6,11 @@ import createParser, { Parser } from './parser'
 import onTraverse from './traverse'
 import { NormalObject } from '../types/custom'
 
+// tslint:disable-next-line:no-var-requires
+const ConstDependency = require('webpack/lib/dependencies/ConstDependency')
+// tslint:disable-next-line:no-var-requires
+const NullFactory = require("webpack/lib/NullFactory");
+
 export interface DynamicRoutesWebpackPluginOptions {
   /**
    * @description 路由文件的绝对路径, 通过解析该文件内容得到 routesMap
@@ -81,6 +86,7 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
             },
             (expr: NormalObject) => {
               if (this.isIgnoreAllImport()) {
+                this.mockImportExpression(parser, expr);
                 return true
               }
               if (
@@ -91,6 +97,7 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
                   getProperty(expr, ['arguments', '0', 'value'])
                 )
               ) {
+                this.mockImportExpression(parser, expr);
                 return true
               }
             }
@@ -114,6 +121,15 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
             Reflect.set(module, 'needRebuild', needRebuild)
           }
         }
+
+        compilation.dependencyFactories.set(
+          ConstDependency,
+          new NullFactory()
+        );
+				compilation.dependencyTemplates.set(
+					ConstDependency,
+					new ConstDependency.Template()
+				);
 
         /** @type {SyncHook<parser, parserOptions>} */
         normalModuleFactory.hooks.parser
@@ -150,6 +166,12 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
     this.routesModuleNeedRebuild = true
     this.options.current = [...(current as Array<string>), route]
     return true
+  }
+
+  private mockImportExpression(parser: NormalObject, expr: NormalObject): void {
+    const dep = new ConstDependency(DynamicRoutesWebpackPlugin.MOCK_DYNAMIC_IMPORT, expr.range);
+    dep.loc = expr.loc;
+    parser.state.module.addDependency(dep);
   }
 
   private isIgnoreAllImport(): boolean {
@@ -213,19 +235,6 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
     }
   }
 
-  static COMPILER_KEY: symbol = Symbol('__dynamic_routes_plugin__')
-
-  static getOperatorFromCompiler(compiler: Webpack.Compiler): Operator | null {
-    const plugin: IDynamicRoutesWebpackPlugin = Reflect.get(
-      compiler,
-      DynamicRoutesWebpackPlugin.COMPILER_KEY
-    )
-    if (plugin) {
-      return plugin.getOperator()
-    }
-    return null
-  }
-
   static normalizeOptions(
     options: DynamicRoutesWebpackPluginOptions
   ): DynamicRoutesWebpackPluginOptions {
@@ -250,6 +259,21 @@ class DynamicRoutesWebpackPlugin implements IDynamicRoutesWebpackPlugin {
             `)
     }
   }
+
+  static getOperatorFromCompiler(compiler: Webpack.Compiler): Operator | null {
+    const plugin: IDynamicRoutesWebpackPlugin = Reflect.get(
+      compiler,
+      DynamicRoutesWebpackPlugin.COMPILER_KEY
+    )
+    if (plugin) {
+      return plugin.getOperator()
+    }
+    return null
+  }
+
+  static MOCK_DYNAMIC_IMPORT: string = '/** MOCK_DYNAMIC_IMPORT */ Promise.resolve(null)'
+
+  static COMPILER_KEY: symbol = Symbol('__dynamic_routes_plugin__')
 }
 
 export default DynamicRoutesWebpackPlugin
